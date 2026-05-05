@@ -1,0 +1,9 @@
+.env
+mid-construction-web-app-*.json
+__pycache__/
+Uploads/
+Pages/
+Sample Text/
+Structured Text/
+Embeddings/
+venv/

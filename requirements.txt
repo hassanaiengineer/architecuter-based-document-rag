@@ -1,0 +1,26 @@
+langchain
+langchain-community
+langchain-anthropic
+faiss-cpu
+streamlit
+anthropic
+jsonlines
+python-dotenv
+tqdm
+numpy
+sentence-transformers
+google-cloud-vision
+pdf2image
+fastapi 
+uvicorn
+
+
+# if not work then install via these commands.
+# pip install langchain langchain-community langchain-anthropic faiss-cpu streamlit anthropic jsonlines python-dotenv tqdm numpy
+# pip install sentence-transformers
+# pip install --upgrade google-cloud-vision
+# pip install pdf2image
+
+# For fastapi:
+#pip install fastapi uvicorn
+# pip install python-multipart
