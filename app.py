@@ -1,10 +1,9 @@
 import os
 import streamlit as st
 import time
-import json
-from utils.ocr import OCRProcessor
-from utils.embedding import DocumentProcessor
-from utils.language_model import LanguageModel
+import requests
+
+API_BASE_URL = "http://localhost:8000/api"
 
 # Set page configuration
 st.set_page_config(
@@ -14,23 +13,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Create necessary directories
-for directory in ['Uploads', 'Pages', 'Sample Text', 'Structured Text', 'Embedding']:
-    os.makedirs(directory, exist_ok=True)
-
 # Initialize session state variables
+if 'current_document_id' not in st.session_state:
+    st.session_state.current_document_id = None
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
-if 'current_json_path' not in st.session_state:
-    st.session_state.current_json_path = None
-if 'processed_files' not in st.session_state:
-    st.session_state.processed_files = []
-if 'processing_complete' not in st.session_state:
-    st.session_state.processing_complete = False
-
-# Initialize components
-ocr_processor = OCRProcessor()
-language_model = LanguageModel()
 
 # Custom CSS
 st.markdown("""
@@ -77,6 +64,24 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def fetch_documents():
+    try:
+        response = requests.get(f"{API_BASE_URL}/documents/list")
+        if response.status_code == 200:
+            return response.json().get("documents", [])
+    except requests.exceptions.RequestException:
+        st.sidebar.error("Failed to connect to API backend.")
+    return []
+
+def load_chat_history(document_id):
+    try:
+        response = requests.get(f"{API_BASE_URL}/queries/{document_id}/chat/history")
+        if response.status_code == 200:
+            return response.json().get("history", [])
+    except requests.exceptions.RequestException:
+        pass
+    return []
+
 # Sidebar
 with st.sidebar:
     st.title("Architecture Document RAG")
@@ -97,12 +102,16 @@ with st.sidebar:
     st.subheader("Processed Documents")
     
     # Display list of processed files
-    if st.session_state.processed_files:
-        for file_index, file_info in enumerate(st.session_state.processed_files):
-            if st.button(f"📄 {file_info['filename']}", key=f"file_{file_index}"):
-                st.session_state.current_json_path = file_info['json_path']
-                st.session_state.processing_complete = True
-                st.success(f"Selected: {file_info['filename']}")
+    documents = fetch_documents()
+    if documents:
+        for doc in documents:
+            if doc['status'] == 'completed':
+                if st.button(f"📄 {doc['filename']}", key=f"file_{doc['document_id']}"):
+                    st.session_state.current_document_id = doc['document_id']
+                    st.session_state.chat_history = load_chat_history(doc['document_id'])
+                    st.success(f"Selected: {doc['filename']}")
+            else:
+                st.markdown(f"📄 {doc['filename']} - *{doc['status']}*")
     else:
         st.info("No documents processed yet. Upload one to get started.")
     
@@ -127,80 +136,52 @@ with tab1:
         process_button = st.button("Process Document", type="primary", disabled=not uploaded_file)
         
     if process_button and uploaded_file:
-        # Display processing status
         status_container = st.empty()
-        progress_bar = st.progress(0)
-        
         try:
-            # Save uploaded file temporarily
-            temp_pdf_path = os.path.join("Uploads", uploaded_file.name)
-            with open(temp_pdf_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+            status_container.info("Uploading document to API...")
+            files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
+            response = requests.post(f"{API_BASE_URL}/documents/upload", files=files)
+            
+            if response.status_code == 200:
+                doc_data = response.json()
+                doc_id = doc_data["document_id"]
+                st.session_state.current_document_id = doc_id
                 
-            # Update progress
-            status_container.info("PDF saved to uploads folder")
-            progress_bar.progress(10)
-            time.sleep(0.5)
-            
-            # Process PDF with OCR
-            status_container.info("Running OCR on document...")
-            json_path, txt_path = ocr_processor.process_pdf(temp_pdf_path)
-            progress_bar.progress(50)
-            time.sleep(0.5)
-            
-            # Generate embeddings
-            status_container.info("Creating document embeddings...")
-            doc_processor = DocumentProcessor(json_path)
-            docs, index = doc_processor.create_faiss_index()
-            progress_bar.progress(90)
-            time.sleep(0.5)
-            
-            # Update session state
-            file_info = {
-                "filename": uploaded_file.name,
-                "pdf_path": temp_pdf_path,
-                "json_path": json_path,
-                "txt_path": txt_path,
-                "index_path": doc_processor.index_path,
-                "chunks": len(docs)
-            }
-            
-            st.session_state.processed_files.append(file_info)
-            st.session_state.current_json_path = json_path
-            st.session_state.processing_complete = True
-            
-            # Complete progress
-            progress_bar.progress(100)
-            status_container.success("Document processed successfully!")
-            
-            # Display document info
-            with st.expander("Document Processing Details", expanded=True):
-                st.markdown(f"**File:** {uploaded_file.name}")
-                st.markdown(f"**Total Pages:** {len(json.load(open(json_path)).keys())}")
-                st.markdown(f"**Chunks Created:** {len(docs)}")
-                st.markdown(f"**Embedding Model:** all-MiniLM-L6-v2")
-                
-                # Show sample text preview
-                with open(txt_path, 'r', encoding='utf-8') as f:
-                    sample_text = f.read()[:500] + "..."
-                st.text_area("Text Preview:", sample_text, height=200)
-            
+                # Polling for status
+                progress_bar = st.progress(0)
+                while True:
+                    status_response = requests.get(f"{API_BASE_URL}/documents/{doc_id}/status")
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        progress_bar.progress(int(status_data["progress"]))
+                        status_container.info(status_data["message"])
+                        
+                        if status_data["status"] == "completed":
+                            status_container.success("Document processed successfully!")
+                            st.session_state.chat_history = []
+                            st.rerun()
+                        elif status_data["status"] == "failed":
+                            status_container.error(f"Processing failed: {status_data['message']}")
+                            break
+                        
+                    time.sleep(2)
+            else:
+                status_container.error(f"Upload failed: {response.text}")
         except Exception as e:
             status_container.error(f"Error processing document: {str(e)}")
-            st.exception(e)
 
 # Chat tab
 with tab2:
     st.header("Chat with your Document")
     
-    if not st.session_state.processing_complete:
-        st.warning("Please upload and process a document first before chatting.")
+    if not st.session_state.current_document_id:
+        st.warning("Please select or upload and process a document first before chatting.")
     else:
         # Get the current document filename
         current_file = None
-        for file_info in st.session_state.processed_files:
-            if file_info['json_path'] == st.session_state.current_json_path:
-                current_file = file_info
+        for doc in fetch_documents():
+            if doc['document_id'] == st.session_state.current_document_id:
+                current_file = doc
                 break
         
         if current_file:
@@ -212,7 +193,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
             
-            # Chat interface
             # Display chat history
             for message in st.session_state.chat_history:
                 role = message["role"]
@@ -230,54 +210,43 @@ with tab2:
             query = st.text_input("Ask a question about your document:", key="query_input")
             
             if st.button("Send", type="primary") and query:
-                # Add user message to chat history
-                now = time.strftime("%H:%M:%S")
+                # Add temporary user message
+                now = time.strftime("%Y-%m-%d %H:%M:%S")
                 st.session_state.chat_history.append({
                     "role": "user",
                     "content": query,
                     "timestamp": now
                 })
                 
-                # Display user message immediately
-                st.markdown(f"""
-                <div class="chat-message user">
-                    <div class="timestamp">{now}</div>
-                    <div class="content">{query}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Process query
-                try:
-                    with st.spinner("Searching document..."):
-                        # Create document processor if needed
-                        doc_processor = DocumentProcessor(st.session_state.current_json_path)
+                with st.spinner("Searching document..."):
+                    try:
+                        # Call API
+                        payload = {
+                            "question": query,
+                            "max_tokens": 1000,
+                            "top_k": 4,
+                            "save_to_history": True
+                        }
+                        response = requests.post(f"{API_BASE_URL}/queries/{st.session_state.current_document_id}/query", json=payload)
                         
-                        # Retrieve similar documents
-                        similar_docs = doc_processor.search_similar_documents(query)
-                        
-                        # Generate answer
-                        answer = language_model.search_and_answer(query, similar_docs)
-                        
-                        # Add assistant message to chat history
-                        now = time.strftime("%H:%M:%S")
-                        st.session_state.chat_history.append({
-                            "role": "assistant",
-                            "content": answer,
-                            "timestamp": now
-                        })
-                        
-                        # Display assistant message
-                        st.markdown(f"""
-                        <div class="chat-message assistant">
-                            <div class="timestamp">{now}</div>
-                            <div class="content">{answer}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                except Exception as e:
-                    st.error(f"Error processing query: {str(e)}")
+                        if response.status_code == 200:
+                            data = response.json()
+                            st.session_state.chat_history.append({
+                                "role": "assistant",
+                                "content": data["answer"],
+                                "timestamp": data.get("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+                            })
+                            st.rerun()
+                        else:
+                            st.error(f"Error from API: {response.text}")
+                    except Exception as e:
+                        st.error(f"Error processing query: {str(e)}")
             
             # Clear chat button
             if st.button("Clear Chat History"):
-                st.session_state.chat_history = []
-                st.experimental_rerun()
+                try:
+                    requests.delete(f"{API_BASE_URL}/queries/{st.session_state.current_document_id}/chat/history")
+                    st.session_state.chat_history = []
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to clear history: {str(e)}")
