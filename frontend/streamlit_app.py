@@ -56,90 +56,150 @@ def backend_health() -> bool:
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 2rem; }
-      .rag-hero {
+      :root {
+        --rag-border: rgba(148,163,184,0.14);
+        --rag-card: rgba(15,23,42,0.52);
+        --rag-card-2: rgba(15,23,42,0.34);
+        --rag-text: rgba(226,232,240,0.92);
+        --rag-muted: rgba(226,232,240,0.72);
+        --rag-accent: rgba(124,58,237,0.35);
+        --rag-accent-2: rgba(16,185,129,0.22);
+      }
+
+      html, body, [class*="css"]  { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif; }
+
+      .block-container { padding-top: 1.25rem; padding-bottom: 2rem; }
+      section[data-testid="stSidebar"] { border-right: 1px solid var(--rag-border); }
+
+      #MainMenu, footer { visibility: hidden; }
+
+      .rag-shell {
+        background:
+          radial-gradient(900px 400px at 10% 0%, rgba(124,58,237,0.18), transparent 60%),
+          radial-gradient(900px 400px at 90% 0%, rgba(16,185,129,0.14), transparent 60%);
+        border: 1px solid var(--rag-border);
+        border-radius: 16px;
         padding: 1.25rem 1.25rem;
-        border: 1px solid rgba(49, 51, 63, 0.14);
-        border-radius: 14px;
-        background: linear-gradient(135deg, rgba(99,102,241,0.10), rgba(16,185,129,0.08));
         margin-bottom: 1rem;
       }
-      .rag-hero h1 { margin: 0; font-size: 1.85rem; }
-      .rag-hero p { margin: 0.35rem 0 0; opacity: 0.92; }
+
+      .rag-title {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+      .rag-subtitle { margin: 0.35rem 0 0; color: var(--rag-muted); font-size: 0.98rem; }
+
+      .rag-pills { margin-top: 0.85rem; display: flex; gap: 0.45rem; flex-wrap: wrap; }
       .rag-pill {
-        display: inline-block;
-        padding: 0.25rem 0.6rem;
+        padding: 0.22rem 0.55rem;
         border-radius: 999px;
-        font-size: 0.85rem;
-        border: 1px solid rgba(49, 51, 63, 0.14);
-        background: rgba(255,255,255,0.55);
-        margin-right: 0.4rem;
+        font-size: 0.82rem;
+        border: 1px solid var(--rag-border);
+        background: rgba(2,6,23,0.20);
+        color: var(--rag-text);
+        backdrop-filter: blur(10px);
       }
-      .rag-muted { opacity: 0.8; font-size: 0.92rem; }
-      .rag-card {
-        border: 1px solid rgba(49, 51, 63, 0.14);
+
+      .rag-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.9rem; align-items: stretch; margin-top: 0.9rem; }
+      .rag-panel {
+        border: 1px solid var(--rag-border);
         border-radius: 14px;
-        padding: 1rem;
-        background: rgba(255,255,255,0.35);
+        background: var(--rag-card);
+        padding: 0.95rem 1rem;
       }
+      .rag-panel h3 { margin: 0; font-size: 0.9rem; font-weight: 650; color: var(--rag-muted); text-transform: uppercase; letter-spacing: .06em; }
+      .rag-panel .kpi { margin-top: 0.4rem; font-size: 1.15rem; font-weight: 650; }
+      .rag-panel .hint { margin-top: 0.35rem; color: var(--rag-muted); font-size: 0.9rem; }
+
+      .rag-credit { margin-top: 0.75rem; color: var(--rag-text); font-size: 0.95rem; }
+      .rag-credit b { font-weight: 650; }
+
+      .rag-card {
+        border: 1px solid var(--rag-border);
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        background: var(--rag-card-2);
+      }
+
+      /* Make default Streamlit headers less heavy */
+      h2, h3 { font-weight: 650 !important; letter-spacing: -0.01em; }
+      h2 { font-size: 1.15rem !important; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+backend_ok = backend_health()
+doc_count = 0
+if backend_ok:
+    try:
+        doc_count = len(list_documents())
+    except Exception:
+        doc_count = 0
+
 st.markdown(
-    """
-    <div class="rag-hero">
-      <h1>Construction Document RAG</h1>
-      <p>Production-ready document intelligence (OCR + retrieval + citations).</p>
-      <div style="margin-top: 0.85rem">
-        <span class="rag-pill">FastAPI</span>
-        <span class="rag-pill">FAISS</span>
-        <span class="rag-pill">OCR</span>
-        <span class="rag-pill">Citations</span>
+    f"""
+    <div class="rag-shell">
+      <div>
+        <div class="rag-title">Construction Document RAG</div>
+        <div class="rag-subtitle">Document intelligence for construction/architecture: extraction, retrieval, and cited answers.</div>
+        <div class="rag-pills">
+          <span class="rag-pill">FastAPI</span>
+          <span class="rag-pill">FAISS</span>
+          <span class="rag-pill">OCR</span>
+          <span class="rag-pill">Citations</span>
+        </div>
+        <div class="rag-grid">
+          <div class="rag-panel">
+            <h3>Workspace</h3>
+            <div class="kpi">{doc_count} documents</div>
+            <div class="hint">Upload a PDF, wait for ingestion, then query with citations.</div>
+          </div>
+          <div class="rag-panel">
+            <h3>Backend</h3>
+            <div class="kpi">{'Connected' if backend_ok else 'Offline'}</div>
+            <div class="hint">{API_BASE_URL}</div>
+          </div>
+        </div>
+        <div class="rag-credit"><b>Built by Hassan Khan</b></div>
       </div>
-      <p style="margin-top: 0.95rem;"><b>Built by Hassan Khan</b></p>
-      <p class="rag-muted">Upload a PDF, wait for ingestion, then query with citations.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-backend_ok = backend_health()
-
 with st.sidebar:
-    st.subheader("Connection")
-    st.caption(f"API Base URL: {API_BASE_URL}")
+    st.markdown("### Console")
+    st.caption("Workspace connectivity & configuration")
+    st.markdown(f"**API Base URL**\n\n`{API_BASE_URL}`")
+    st.markdown("---")
     if backend_ok:
         st.success("Backend connected")
     else:
-        st.error("Backend not reachable")
-        st.info(
-            "Start the API and reload:\n\n"
-            "`uvicorn construction_rag.api.main:app --host 0.0.0.0 --port 8000`"
-        )
+        st.warning("Backend offline")
+        st.code("uvicorn construction_rag.api.main:app --host 0.0.0.0 --port 8000")
 
     st.markdown("---")
-    st.subheader("Environment")
-    st.caption("For full capability set env vars in `.env` (see `README.md`).")
-    st.write(f"- `OPENAI_API_KEY`: {'OK' if os.getenv('OPENAI_API_KEY') else 'missing'}")
-    st.write(f"- `ANTHROPIC_API_KEY`: {'OK' if os.getenv('ANTHROPIC_API_KEY') else 'missing'}")
-    st.write(f"- `LLM_PROVIDER`: `{os.getenv('LLM_PROVIDER', 'anthropic')}`")
-    st.write(f"- `LLM_MODEL`: `{os.getenv('LLM_MODEL', '')}`")
+    st.markdown("### Environment")
+    st.caption("Set in `.env` (see `README.md`).")
+    st.write(f"**OPENAI_API_KEY**: {'OK' if os.getenv('OPENAI_API_KEY') else 'missing'}")
+    st.write(f"**ANTHROPIC_API_KEY**: {'OK' if os.getenv('ANTHROPIC_API_KEY') else 'missing'}")
+    st.write(f"**LLM_PROVIDER**: `{os.getenv('LLM_PROVIDER', 'anthropic')}`")
+    st.write(f"**LLM_MODEL**: `{os.getenv('LLM_MODEL', '')}`")
 
 
 tab_upload, tab_chat = st.tabs(["Upload & Process", "Chat"])
 
 with tab_upload:
-    st.subheader("Upload PDF")
-    st.markdown(
-        '<div class="rag-card">Use a real construction/architectural PDF for best results.</div>',
-        unsafe_allow_html=True,
-    )
-    uploaded = st.file_uploader("PDF document", type=["pdf"])
+    st.subheader("Upload")
+    st.caption("Ingest a PDF into your workspace index.")
+    st.markdown('<div class="rag-card">Tip: scanned drawings benefit from OCR. Text-based PDFs ingest faster.</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader("PDF", type=["pdf"])
 
     can_upload = backend_ok and uploaded is not None
-    if st.button("Upload & Process", type="primary", disabled=not can_upload):
+    if st.button("Upload & Process", type="primary", disabled=not can_upload, use_container_width=False):
         if not backend_ok:
             st.warning("Backend is not connected. Start the API and try again.")
             st.stop()
@@ -177,7 +237,8 @@ with tab_upload:
 
 
 with tab_chat:
-    st.subheader("Ask a question")
+    st.subheader("Chat")
+    st.caption("Query a processed document and get cited answers.")
 
     if not backend_ok:
         st.info("Backend is not connected. Start the API to list documents and query.")
