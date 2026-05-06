@@ -2,12 +2,14 @@
 
 Production-grade Retrieval-Augmented Generation (RAG) backend for construction and architectural documents. The system ingests PDFs, extracts text (native text + OCR fallback), builds per-document vector indexes, and answers questions with citations.
 
+![Frontend](assets/home.png)
+
 ## What’s included
 
 - FastAPI backend with async DB (SQLAlchemy) and clean routing (`/v1/...`)
 - Hybrid extraction: native PDF text (PyMuPDF) + optional Google Vision OCR
 - Embeddings + FAISS vector index persisted per document
-- Optional reranking (SentenceTransformers CrossEncoder when configured)
+- Optional reranking (`BM25`) for better precision
 - LLM provider abstraction: Anthropic (Claude) and OpenAI
 - Structured logging, consistent error responses, and environment-based config
 - Docker + docker-compose for deployment
