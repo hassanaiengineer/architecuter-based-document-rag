@@ -3,7 +3,8 @@
 1. Prompt Engineering
 
 
-2. RAG:
+2. RAG Development:
+
 
 
 3. Fine Tuning:
