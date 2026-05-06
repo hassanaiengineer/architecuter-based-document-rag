@@ -59,6 +59,19 @@ section[data-testid="stSidebar"] .block-container {
   box-shadow: none !important;
 }
 
+/* Streamlit bordered containers as premium cards */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--card) !important;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+  padding: 0.35rem 0.4rem;
+}
+
 .stButton > button:hover {
   border-color: rgba(79, 143, 247, 0.55) !important;
   background: rgba(2, 6, 23, 0.40) !important;
