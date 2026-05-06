@@ -67,7 +67,7 @@ streamlit run frontend/streamlit_app.py
 
 ## Repository layout
 
-- `src/construction_rag/` – application package (API, services, DB, core)
+- `construction_rag/` – application package (API, services, DB, core)
 - `frontend/` – optional Streamlit UI
 - `docker/` – Dockerfile + compose
 - `requirements/` – dependency groups
